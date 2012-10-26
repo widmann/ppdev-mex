@@ -17,6 +17,8 @@
 % Examples:
 %   ppdev_mex('Open', 1);
 %   ppdev_mex('Write', 1, 255);
+%   WaitSecs(0.001);
+%   ppdev_mex('Write', 1, 0);
 %   ppdev_mex('Close', 1);
 %   ppdev_mex('CloseAll');
 %
