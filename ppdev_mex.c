@@ -41,6 +41,11 @@
 #include <linux/parport.h>
 #include <linux/ppdev.h>
 
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <unistd.h>
+
 #define NUM_ADDRESS_COLS 2
 #define NUM_DATA_COLS 3
 
@@ -107,8 +112,8 @@ void ppd(const int parportfd, const int action, void * const b, const char * con
     }
 }
 
-void read(const uint64_T reg, void * const b, const int parportfd, const int reader, const int o) {
-    if USE_PPDEV {
+void readPort(const uint64_T reg, void * const b, const int parportfd, const int reader, const int o) {
+    if (USE_PPDEV) {
         ppd(parportfd,reader,b,"couldn't read pport");
         /*         printf("%d\n",o); */
     } else {
@@ -148,7 +153,7 @@ void doPort(
                     writer = PPWCONTROL;
                     break;
                 case ECR_OFFSET:
-                    if USE_PPDEV {
+                    if (USE_PPDEV) {
                         mexErrMsgTxt("ECR not supported under PPDEV (figure out correct PPSETMODE)");
                     }
                     break;
@@ -157,7 +162,7 @@ void doPort(
                     break;
             }
             reg = *(uint64_T *)addr + offsets[i];
-            read(reg,&b,parportfd,reader,offsets[i]);
+            readPort(reg,&b,parportfd,reader,offsets[i]);
 
             if (writing) {
                 switch (offsets[i]) {
@@ -172,26 +177,26 @@ void doPort(
                         }
                         break;
                 }
-                if DEBUG {
+                if (DEBUG) {
                     printf("old %d:",i);
                     printBits(b);
                 }
                 b = (b & ~mask[i]) | vals[i]; /*frob*/
-                if DEBUG {
+                if (DEBUG) {
                     printf(" -> ");
                     printBits(b);
                 }
                 if (offsets[i] != ECR_OFFSET && ENABLE_WRITE) {
-                    if USE_PPDEV {
+                    if (USE_PPDEV) {
                         ppd(parportfd,writer,&b,"couldn't write pport");
                         /* printf("%d\n",offsets[i]); */
                     } else {
                         outb(b,reg);
                     }
                     if (out != NULL || DEBUG) {
-                        read(reg,&b,parportfd,reader,offsets[i]);
+                        readPort(reg,&b,parportfd,reader,offsets[i]);
                         
-                        if DEBUG {
+                        if (DEBUG) {
                             printf(" -> ");
                             printBits(b);
                             printf("\n");
@@ -206,7 +211,7 @@ void doPort(
                 for (j = 0; j < numVals; j++) {
                     if (data[j+numVals] == offsets[i]) {
                         out[j+n*numVals] = getBit(b,data[j]);
-                        if DEBUG {
+                        if (DEBUG) {
                             printf("wrote a %d\n",out[j+n*numVals]);
                         }
                     }
@@ -236,7 +241,8 @@ void PPDEVWrite(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
     /* The device number and value must be noncomplex scalar double */
     for (i = 0; i < nrhs; i++) {
-        if (!mxIsDouble(prhs[i]) || mxIsComplex(prhs[i]) || !mxIsScalar(prhs[i])) {
+/*        if (!mxIsDouble(prhs[i]) || mxIsComplex(prhs[i]) || ! mxIsScalar(prhs[i])) { */
+        if (!mxIsDouble(prhs[i]) || mxIsComplex(prhs[i]) || !(mxGetN(prhs[i])==1 && mxGetM(prhs[i])==1)) {
             mexErrMsgTxt("Arguments must be noncomplex scalar double.");
         }
     }
@@ -262,7 +268,7 @@ void PPDEVWrite(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     }
 
     /* Assign pointers to each output */
-    if DEBUG printf("%d lhs\n",nlhs);
+    if (DEBUG) printf("%d lhs\n",nlhs);
     switch (nlhs) {
         case 1:
             *plhs = mxCreateLogicalMatrix(numVals,numAddresses);
@@ -282,7 +288,7 @@ void PPDEVWrite(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
             break;
     }
 
-    if DEBUG printf("\n\ndata:\n");
+    if (DEBUG) printf("\n\ndata:\n");
 
     /* Convert data matrix for use with doPort */
     for (i = 0; i < numVals; i++) {
@@ -292,7 +298,7 @@ void PPDEVWrite(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
             value = data[i+2*numVals];
         }
 
-        if DEBUG {
+        if (DEBUG) {
             printf("\t%d, %d", bitNum, regOffset);
             if (writing) printf(" %d", value);
             printf("\n");
@@ -307,7 +313,7 @@ void PPDEVWrite(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
         if (value) vals[regOffset] |= pos;
     }
 
-    if DEBUG {
+    if (DEBUG) {
         for (j = 0; j < NUM_REGISTERS; j++) {
             printf("mask:");
             printBits(mask[j]);
@@ -367,7 +373,8 @@ void PPDEVClose(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     int port, result;
 
     /* The device number must be noncomplex scalar double */
-    if (nrhs != 1 || !mxIsDouble(prhs[0]) || mxIsComplex(prhs[0]) || !mxIsScalar(prhs[0])) {
+/*    if (nrhs != 1 || !mxIsDouble(prhs[0]) || mxIsComplex(prhs[0]) || !mxIsScalar(prhs[0])) { */
+    if (nrhs != 1 || !mxIsDouble(prhs[0]) || mxIsComplex(prhs[0]) || !(mxGetN(prhs[0])==1 && mxGetM(prhs[0])==1)) {
         mexErrMsgTxt("Port number must be noncomplex scalar double.");
     }
 
@@ -416,7 +423,8 @@ void PPDEVOpen(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     pp_device *newdev = NULL;
 
     /* The device number must be noncomplex scalar double */
-    if (nrhs != 1 || !mxIsDouble(prhs[0]) || mxIsComplex(prhs[0]) || !mxIsScalar(prhs[0])) {
+/*    if (nrhs != 1 || !mxIsDouble(prhs[0]) || mxIsComplex(prhs[0]) || !mxIsScalar(prhs[0])) { */
+    if (nrhs != 1 || !mxIsDouble(prhs[0]) || mxIsComplex(prhs[0]) || !(mxGetN(prhs[0])==1 && mxGetM(prhs[0])==1)) {
         mexErrMsgTxt("Port number must be noncomplex scalar double.");
     }
 
@@ -435,13 +443,14 @@ void PPDEVOpen(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
     }
     mexMakeMemoryPersistent(addrStr);
 
-    result = snprintf(addrStr,addrStrLen+1,"%s%" FMT64 "u",ADDR_BASE,port); /* +1 for null terminator */
+/*    result = snprintf(addrStr,addrStrLen+1,"%s%" FMT64 "u",ADDR_BASE,port); /* +1 for null terminator */
+    result = snprintf(addrStr,addrStrLen+1,"%s%lu",ADDR_BASE,port); /* +1 for null terminator */
     if (result != addrStrLen) {
         printf("%d\t%d\t%s\n",result,addrStrLen,addrStr);
         mexErrMsgTxt("bad addrStr snprintf");
     }
 
-    if DEBUG printf("%d\t%s.\n",addrStrLen,addrStr);
+    if (DEBUG) printf("%d\t%s.\n",addrStrLen,addrStr);
 
     /* Allocate memory for new port device */
     newdev = (pp_device *)mxMalloc(sizeof(pp_device));
