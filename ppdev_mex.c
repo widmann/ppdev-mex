@@ -512,6 +512,16 @@ static MexFunctionPtr SelectFunction(char *command)
     return NULL;
 }
 
+static void printHelp() {
+    mexPrintf("ppdev_mex usage : \n");
+    mexPrintf("ppdev_mex('Open' , port)          : opens the device, and get it ready to send messages \n");
+    mexPrintf("ppdev_mex('Write', port, message) : sends the message = {0, 1, 2, ..., 255} uint8 \n");
+    mexPrintf("ppdev_mex('Close', port)          : closes the device \n");
+    mexPrintf("ppdev_mex('CloseAll')             : closes all devices \n");
+    mexPrintf("use \"help ppdev_mex\" for more details \n");
+    mexPrintf("\n");
+}
+
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
 
@@ -526,6 +536,12 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
             ppdev_table[i] = NULL;
         }
         firstTime = 0;
+    }
+
+    /* Check inputs : no input => print help then return*/
+    if (nrhs==0) {
+        printHelp();
+        return;
     }
 
     /* Input must be a string. */
